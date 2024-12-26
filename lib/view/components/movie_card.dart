@@ -1,51 +1,74 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 class MovieCard extends StatelessWidget {
-  const MovieCard({super.key});
+  final String imageUrl;
+  final String title;
+  final double rating;
+
+  const MovieCard({
+    super.key,
+    required this.imageUrl,
+    required this.title,
+    required this.rating,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-      child: SizedBox(
-        width: 300.w,
-        height: 250,
+      padding: const EdgeInsets.all(10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
         child: Stack(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                'assets/images/poster1.jpg',
-                fit: BoxFit.cover,
+            Image.network(imageUrl, fit: BoxFit.cover),
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+                  ),
+                ),
               ),
             ),
             Positioned(
               bottom: 15,
-              left: 0,
-              right: 0,
+              left: 10,
+              right: 10,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildText('Movie Name', fontSize: 18.sp, fontWeight: FontWeight.bold),
-                  _buildText('Rating: 10/10', fontSize: 16.sp),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 5),
+                  RatingBar.builder(
+                    initialRating: rating,
+                    minRating: 1,
+                    direction: Axis.horizontal,
+                    allowHalfRating: true,
+                    ignoreGestures: true,
+                    itemCount: 5,
+                    itemSize: 20,
+                    itemBuilder: (context, _) => const Icon(
+                      Icons.star,
+                      color: Colors.redAccent,
+                    ),
+                    onRatingUpdate: (_) {},
+                  ),
                 ],
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildText(String text, {required double fontSize, FontWeight fontWeight = FontWeight.normal}) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: Colors.white,
-        fontWeight: fontWeight,
-        fontSize: fontSize,
       ),
     );
   }
