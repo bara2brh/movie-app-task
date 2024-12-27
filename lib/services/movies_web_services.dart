@@ -13,12 +13,14 @@ class MovieWebServices {
     _dio = Dio(options);
   }
 
-  Future<List<dynamic>> getAllMovies() async {
+  // Fetch movies with pagination
+  Future<List<dynamic>> getAllMovies({int page = 1}) async {
     try {
       Response response = await _dio.get(
         'discover/movie',
         queryParameters: {
           'api_key': '79d374bc7a0287e624400d88454681b6',
+          'page': page,
         },
       );
       print(response.data.toString());

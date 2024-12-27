@@ -1,22 +1,54 @@
-import 'package:bloc/bloc.dart';
-import 'package:equatable/equatable.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../model/movies.dart';
 import '../repositories/movies_repository.dart';
 import 'movies_state.dart';
-
-
 class MoviesCubit extends Cubit<MoviesState> {
   final MovieRepository movieRepository;
+  final TextEditingController searchController = TextEditingController();
+  String searchQuery = '';
 
   MoviesCubit(this.movieRepository) : super(MoviesInitial());
 
-  void fetchMovies() async {
-    emit(MoviesLoading());
+  List<dynamic> allMovies = [];
+
+  void fetchMovies({bool isPagination = false}) async {
     try {
-      final movies = await movieRepository.fetchMovies();
-      emit(MoviesLoaded(movies));
+      if (isPagination) {
+        emit(MoviesLoading());
+      }
+
+      final Movies newMovies = await movieRepository.fetchMovies(page: isPagination ? (allMovies.length / 20).toInt() + 1 : 1);
+
+      if (isPagination) {
+        allMovies.addAll(newMovies.results!);
+      } else {
+        allMovies = newMovies.results!;
+      }
+
+      emit(MoviesLoaded(allMovies));
     } catch (e) {
-      emit(MoviesError(e.toString()));
+      emit(MoviesError('Failed to load movies'));
     }
+  }
+
+  // Method to update the search query
+ void updateSearchQuery(String query) {
+    searchQuery = query;
+    emit(MoviesLoaded(filterMovies()));  // Emit state with filtered movies
+  }
+
+  void clearSearchQuery() {
+    searchController.clear();
+    searchQuery = '';
+    emit(MoviesLoaded(allMovies));  // Emit state with all movies
+  }
+
+  // Method to filter movies based on the search query
+  List filterMovies() {
+    return allMovies.where((movie) {
+      return movie['title'].toLowerCase().contains(searchQuery.toLowerCase());
+    }).toList();
   }
 }

@@ -3,25 +3,29 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:readmore/readmore.dart';
 
 class MovieDetailsScreen extends StatefulWidget {
-
-  const MovieDetailsScreen({super.key});
+  final movie;
+  const MovieDetailsScreen({super.key,  required this.movie});
 
   @override
   State<MovieDetailsScreen> createState() => _MovieDetailsScreenState();
 }
 
 class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
+
+
+
   @override
   Widget build(BuildContext context) {
-    bool _isExpanded = false;
     return Scaffold(
       body: Stack(
         children: [
           // Background Image
           Container(
-            decoration: const BoxDecoration(
+            decoration:  BoxDecoration(
               image: DecorationImage(
-                image: AssetImage('assets/images/poster1.jpg'),
+                image: NetworkImage(
+                    'https://image.tmdb.org/t/p/w500${widget.movie['poster_path']}',
+                   ),
                 fit: BoxFit.cover,
               ),
             ),
@@ -62,7 +66,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
 
                   // Movie Title and Metadata
                   Text(
-                    "Spider-Man: No Way Home",
+                    widget.movie['title'],
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 28,
@@ -71,7 +75,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Action, Adventure, Fantasy  |  English  |  2h 15m",
+                    '${'Release Date : '+widget.movie['release_date']} | Language : '+widget.movie["original_language"].toUpperCase() ,
                     style: TextStyle(
                       color: Colors.grey[300],
                       fontSize: 14,
@@ -84,23 +88,23 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                   Row(
                     children: [
                       RatingBar.builder(
-                        initialRating: 4.5,
+                        initialRating: widget.movie['vote_average'] / 2,
                         minRating: 1,
                         direction: Axis.horizontal,
                         allowHalfRating: true,
                         ignoreGestures: true,
                         itemCount: 5,
                         itemSize: 20,
-                        unratedColor: Colors.grey,
+                        unratedColor: Colors.white70,
                         itemBuilder: (context, _) => const Icon(
                           Icons.star,
                           color: Colors.redAccent,
-                        ),
-                        onRatingUpdate: (rating) {},
+                        ), onRatingUpdate: (double value) {  },
+
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        "(1M)",
+                        '(${widget.movie['vote_count']} votes)',
                         style: TextStyle(color: Colors.grey[300]),
                       ),
                     ],
@@ -119,8 +123,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                   ),
                   const SizedBox(height: 8),
                   ReadMoreText(
-                    "With Spider-Man's identity now revealed, Peter asks Doctor Strange for help. "
-                     "When a spell goes wrong, dangerous foes from other worlds start to appear...",
+                    widget.movie['overview'],
                     style: TextStyle(
                       color: Colors.grey[300],
                       fontSize: 14,
@@ -136,21 +139,6 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                   const SizedBox(height: 16),
 
                   // Director and Stars
-                  const Text(
-                    "Director: Jon Watts",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Stars: Tom Holland, Zendaya, Benedict Cumberbatch",
-                    style: TextStyle(
-                      color: Colors.grey[300],
-                      fontSize: 14,
-                    ),
-                  ),
 
                   const SizedBox(height: 30),
 
@@ -176,6 +164,7 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
                       ),
                     ),
                   ),
+                  SizedBox(height: 10,)
                 ],
               ),
             ),

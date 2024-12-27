@@ -4,14 +4,17 @@ import 'package:flutter_carousel_widget/flutter_carousel_widget.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:movie_app_project/view/components/movie_card.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
-
 import '../cubit/movies_cubit.dart';
 import '../cubit/movies_state.dart';
 
-class HomeScreen extends StatelessWidget {
-   HomeScreen({super.key});
+class HomeScreen extends StatefulWidget {
+  HomeScreen({super.key});
 
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   final List<String> bannerImages = [
     'assets/images/banner1.jpg',
     'assets/images/banner2.jpg',
@@ -19,40 +22,84 @@ class HomeScreen extends StatelessWidget {
     'assets/images/banner4.jpg',
   ];
 
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    final moviesCubit = BlocProvider.of<MoviesCubit>(context);
+    moviesCubit.fetchMovies(isPagination: false);  // Initial movie fetch
+    _scrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    if (_scrollController.position.atEdge && _scrollController.position.pixels > 0) {
+      // At the bottom, trigger loading more movies
+      print('Bottom reached, fetching more movies...');
+      final moviesCubit = BlocProvider.of<MoviesCubit>(context);
+      moviesCubit.fetchMovies(isPagination: true); // Fetch more movies
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final moviesCubit = BlocProvider.of<MoviesCubit>(context);
-    moviesCubit.fetchMovies();
+
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          _buildHeader(),
-          _buildCarousel(),
-          _buildSectionHeading('Find Your \nFavorite Movie!'),
-          _buildSearchBar(),
-          _buildSectionHeading('Movies List'),
-          BlocBuilder<MoviesCubit, MoviesState>(
-            builder: (context, state) {
-              if (state is MoviesLoading) {
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (scrollNotification) {
+          if (scrollNotification is ScrollEndNotification &&
+              scrollNotification.metrics.extentAfter == 0) {
+            print('Bottom reached, fetching more movies...');
+            moviesCubit.fetchMovies(isPagination: true);
+          }
+          return false;
+        },
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            _buildHeader(),
+            _buildCarousel(),
+            _buildSectionHeading('Find Your \nFavorite Movie!'),
+            _buildSearchBar(context),
+            _buildSectionHeading('Movies List'),
+            BlocBuilder<MoviesCubit, MoviesState>(
+              builder: (context, state) {
+                if (state is MoviesLoading) {
+                  return const SliverToBoxAdapter(
+                    child: Center(child: CircularProgressIndicator(color: Colors.redAccent)),
+                  );
+                } else if (state is MoviesLoaded) {
+                  // Filter movies based on the search query
+                  final filteredMovies = state.movies.where((movie) {
+                    return movie['title'].toLowerCase().contains(moviesCubit.searchQuery.toLowerCase());
+                  }).toList();
+                  return _buildMovieGrid(filteredMovies);
+                } else if (state is MoviesError) {
+                  return SliverToBoxAdapter(
+                    child: Center(child: Text(state.message)),
+                  );
+                }
                 return const SliverToBoxAdapter(
-                  child: Center(child: CircularProgressIndicator(color: Colors.redAccent,)),
+                  child: Center(child: Text("No Movies Available", style: TextStyle(color: Colors.white, fontSize: 18))),
                 );
-              } else if (state is MoviesLoaded) {
-                return _buildMovieGrid(state.movies);
-              } else if (state is MoviesError) {
-                return SliverToBoxAdapter(
-                  child: Center(child: Text(state.message)),
-                );
-              }
-              return const SliverToBoxAdapter(
-                child: Center(child: Text("No Movies Available",style: TextStyle(color: Colors.white,fontSize: 18,),)),
-              );
-            },
-          ),
-        ],
+              },
+            ),
+
+
+
+          ],
+        ),
       ),
     );
   }
+
   // Builds the carousel
   SliverToBoxAdapter _buildCarousel() {
     return SliverToBoxAdapter(
@@ -108,7 +155,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  SliverToBoxAdapter _buildSearchBar() {
+  SliverToBoxAdapter _buildSearchBar(BuildContext context) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
@@ -119,7 +166,7 @@ class HomeScreen extends StatelessWidget {
             color: Colors.white12,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Row(
+          child: Row(
             children: [
               Expanded(
                 child: Icon(
@@ -131,15 +178,25 @@ class HomeScreen extends StatelessWidget {
               Expanded(
                 flex: 5,
                 child: TextField(
-                  style: TextStyle(
+                  controller: BlocProvider.of<MoviesCubit>(context).searchController,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                   ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     hintText: 'Search Movies...',
-                    hintStyle: TextStyle(color: Colors.grey),
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.grey),
+                      onPressed: () {
+                        BlocProvider.of<MoviesCubit>(context).clearSearchQuery();
+                      },
+                    ),
                   ),
+                  onChanged: (query) {
+                    BlocProvider.of<MoviesCubit>(context).updateSearchQuery(query);
+                  },
                 ),
               ),
             ],
@@ -149,61 +206,58 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-   SliverGrid _buildMovieGrid(List<dynamic> movies) {
-     return SliverGrid(
-       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-         crossAxisCount: 2,
-         childAspectRatio: 0.75,
-       ),
-       delegate: SliverChildBuilderDelegate(
-             (BuildContext context, int index) {
-           final movie = movies[index];
-           return MovieCard(
-             imageUrl: 'https://image.tmdb.org/t/p/w500${movie['poster_path']}',
-             title: movie['title'],
-             rating: movie['vote_average'] / 2,
-           );
-         },
-         childCount: movies.length,
-       ),
-     );
-   }
-
-SliverToBoxAdapter _buildHeader() {
-  return SliverToBoxAdapter(
-    child: Padding(
-      padding: const EdgeInsets.only(left: 20, right: 20, top: 50, bottom: 20),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 30,
-            backgroundImage: AssetImage('assets/images/pfp.png'),
-          ),
-          const SizedBox(width: 10,),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Welcome Back', style: TextStyle(
-                color: Colors.redAccent,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-              ),
-              Text('Bara Hashlamoon',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          const Spacer(),
-          IconButton(onPressed: () {},
-              icon: const Icon(
-                Icons.favorite_rounded, color: Colors.redAccent, size: 25,))
-        ],
+  SliverGrid _buildMovieGrid(List<dynamic> movies) {
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.75,
       ),
-    ),
-  );
-}
+      delegate: SliverChildBuilderDelegate(
+            (BuildContext context, int index) {
+          final movie = movies[index];
+          return MovieCard(
+            movie: movie,
+          );
+        },
+        childCount: movies.length,
+      ),
+    );
+  }
+
+  SliverToBoxAdapter _buildHeader() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.only(left: 20, right: 20, top: 50, bottom: 20),
+        child: Row(
+          children: [
+            const CircleAvatar(
+              radius: 30,
+              backgroundImage: AssetImage('assets/images/pfp.png'),
+            ),
+            const SizedBox(width: 10),
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Welcome Back', style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                )),
+                Text('Bara Hashlamoon',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+            const Spacer(),
+            IconButton(onPressed: () {} ,
+                icon: const Icon(
+                  Icons.favorite_rounded, color: Colors.redAccent, size: 25,)),
+          ],
+        ),
+      ),
+    );
+  }
 }

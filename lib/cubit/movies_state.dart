@@ -13,10 +13,12 @@ class MoviesLoading extends MoviesState {}
 
 class MoviesLoaded extends MoviesState {
   final List<dynamic> movies;
-  const MoviesLoaded(this.movies);
+  final bool isPagination;  // Flag to check if it's pagination or first load
+
+  const MoviesLoaded(this.movies, {this.isPagination = false});
 
   @override
-  List<Object?> get props => [movies];
+  List<Object?> get props => [movies, isPagination];
 }
 
 class MoviesError extends MoviesState {
