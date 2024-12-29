@@ -15,37 +15,49 @@ class MoviesCubit extends Cubit<MoviesState> {
 
   void fetchMovies({bool isPagination = false}) async {
     try {
-      if (isPagination) {
-        emit(MoviesLoading());
-      }
+      if (!isPagination) emit(MoviesLoading());
 
-      final Movies newMovies = await movieRepository.fetchMovies(page: isPagination ? (allMovies.length / 20).toInt() + 1 : 1);
+      final Movies newMovies = await movieRepository.fetchMovies(
+        page: isPagination ? (allMovies.length ~/ 20) + 1 : 1,
+      );
 
-      if (isPagination) {
-        allMovies.addAll(newMovies.results!);
+      if (newMovies.results == null || newMovies.results!.isEmpty) {
+        if (isPagination) {
+          emit(MoviesLoaded(allMovies));
+        } else {
+          emit(MoviesError('No movies found.'));
+        }
+        return;
       } else {
-        allMovies = newMovies.results!;
+        if (isPagination) {
+          allMovies.addAll(newMovies.results!);
+        } else {
+          allMovies = newMovies.results!;
+        }
+
+
+        emit(MoviesLoaded(allMovies, isPagination: isPagination));
       }
 
-      emit(MoviesLoaded(allMovies));
     } catch (e) {
-      emit(MoviesError('Failed to load movies'));
+      emit(MoviesError('Failed to load movies.'));
     }
   }
 
-  // Method to update the search query
+
+
+
  void updateSearchQuery(String query) {
     searchQuery = query;
-    emit(MoviesLoaded(filterMovies()));  // Emit state with filtered movies
+    emit(MoviesLoaded(filterMovies()));
   }
 
   void clearSearchQuery() {
     searchController.clear();
     searchQuery = '';
-    emit(MoviesLoaded(allMovies));  // Emit state with all movies
+    emit(MoviesLoaded(allMovies));
   }
 
-  // Method to filter movies based on the search query
   List filterMovies() {
     return allMovies.where((movie) {
       return movie['title'].toLowerCase().contains(searchQuery.toLowerCase());

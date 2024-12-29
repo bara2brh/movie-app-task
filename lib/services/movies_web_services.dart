@@ -13,7 +13,7 @@ class MovieWebServices {
     _dio = Dio(options);
   }
 
-  // Fetch movies with pagination
+
   Future<List<dynamic>> getAllMovies({int page = 1}) async {
     try {
       Response response = await _dio.get(
@@ -27,7 +27,7 @@ class MovieWebServices {
       return response.data['results'];
     } catch (e) {
       print('Error fetching movies: ${e.toString()}');
-      return []; // Return an empty list in case of error
+      return [];
     }
   }
 }

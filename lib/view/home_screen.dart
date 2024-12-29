@@ -4,8 +4,11 @@ import 'package:flutter_carousel_widget/flutter_carousel_widget.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:movie_app_project/view/components/movie_card.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:movie_app_project/view/favorite_movies_screen.dart';
+import '../cubit/favorites_cubit.dart';
 import '../cubit/movies_cubit.dart';
 import '../cubit/movies_state.dart';
+import 'movie_details_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
@@ -28,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     final moviesCubit = BlocProvider.of<MoviesCubit>(context);
-    moviesCubit.fetchMovies(isPagination: false);  // Initial movie fetch
+    moviesCubit.fetchMovies(isPagination: false);
     _scrollController.addListener(_scrollListener);
   }
 
@@ -39,13 +42,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _scrollListener() {
-    if (_scrollController.position.atEdge && _scrollController.position.pixels > 0) {
-      // At the bottom, trigger loading more movies
-      print('Bottom reached, fetching more movies...');
-      final moviesCubit = BlocProvider.of<MoviesCubit>(context);
-      moviesCubit.fetchMovies(isPagination: true); // Fetch more movies
+    final moviesCubit = BlocProvider.of<MoviesCubit>(context);
+    if (moviesCubit.searchQuery.isEmpty &&
+        _scrollController.position.atEdge &&
+        _scrollController.position.pixels > 0) {
+      if (!(moviesCubit.state is MoviesLoading) || !(moviesCubit.state as MoviesLoading).isPagination) {
+        print('Bottom reached, fetching more movies...');
+        moviesCubit.fetchMovies(isPagination: true);
+      }
     }
   }
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -54,15 +64,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: NotificationListener<ScrollNotification>(
         onNotification: (scrollNotification) {
-          if (scrollNotification is ScrollEndNotification &&
+          if (moviesCubit.searchQuery.isEmpty &&
+              scrollNotification is ScrollEndNotification &&
               scrollNotification.metrics.extentAfter == 0) {
-            print('Bottom reached, fetching more movies...');
-            moviesCubit.fetchMovies(isPagination: true);
+            if (moviesCubit.state is! MoviesLoading || !(moviesCubit.state as MoviesLoading).isPagination) {
+              moviesCubit.fetchMovies(isPagination: true);
+            }
           }
           return false;
         },
         child: CustomScrollView(
-          controller: _scrollController,
           slivers: [
             _buildHeader(),
             _buildCarousel(),
@@ -71,36 +82,53 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildSectionHeading('Movies List'),
             BlocBuilder<MoviesCubit, MoviesState>(
               builder: (context, state) {
-                if (state is MoviesLoading) {
+                if (state is MoviesLoading && !state.isPagination) {
                   return const SliverToBoxAdapter(
                     child: Center(child: CircularProgressIndicator(color: Colors.redAccent)),
                   );
                 } else if (state is MoviesLoaded) {
-                  // Filter movies based on the search query
-                  final filteredMovies = state.movies.where((movie) {
-                    return movie['title'].toLowerCase().contains(moviesCubit.searchQuery.toLowerCase());
-                  }).toList();
+                  final filteredMovies = state.movies;
+                  if (filteredMovies.isEmpty) {
+                    return const SliverToBoxAdapter(
+                      child: Center(
+                        child: Text(
+                          "No Results Found",
+                          style: TextStyle(color: Colors.white, fontSize: 18),
+                        ),
+                      ),
+                    );
+                  }
                   return _buildMovieGrid(filteredMovies);
                 } else if (state is MoviesError) {
                   return SliverToBoxAdapter(
-                    child: Center(child: Text(state.message)),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(state.message, style: const TextStyle(color: Colors.redAccent, fontSize: 18)),
+                          const SizedBox(height: 10),
+                          ElevatedButton(
+                            onPressed: () => BlocProvider.of<MoviesCubit>(context).fetchMovies(),
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                            child: const Text('Retry' , style: TextStyle(color: Colors.white),),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
                 }
                 return const SliverToBoxAdapter(
-                  child: Center(child: Text("No Movies Available", style: TextStyle(color: Colors.white, fontSize: 18))),
+                  child: SizedBox.shrink(),
                 );
               },
             ),
-
-
-
           ],
         ),
       ),
+
     );
   }
 
-  // Builds the carousel
   SliverToBoxAdapter _buildCarousel() {
     return SliverToBoxAdapter(
       child: Padding(
@@ -168,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Icon(
                   Icons.search,
                   size: 35,
@@ -187,10 +215,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     border: InputBorder.none,
                     hintText: 'Search Movies...',
                     hintStyle: const TextStyle(color: Colors.grey),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.grey),
-                      onPressed: () {
-                        BlocProvider.of<MoviesCubit>(context).clearSearchQuery();
+                    suffixIcon: BlocBuilder<MoviesCubit, MoviesState>(
+                      builder: (context, state) {
+                        return BlocProvider.of<MoviesCubit>(context)
+                            .searchQuery
+                            .isNotEmpty
+                            ? IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.grey),
+                          onPressed: () {
+                            BlocProvider.of<MoviesCubit>(context).clearSearchQuery();
+                          },
+                        )
+                            : const SizedBox();
                       },
                     ),
                   ),
@@ -206,6 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+
   SliverGrid _buildMovieGrid(List<dynamic> movies) {
     return SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -214,15 +251,32 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       delegate: SliverChildBuilderDelegate(
             (BuildContext context, int index) {
+          if (index == movies.length) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.redAccent),
+            );
+          }
           final movie = movies[index];
-          return MovieCard(
-            movie: movie,
+          return InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (BuildContext context) =>
+                      MovieDetailsScreen(movie: movie, wasFavorite: false),
+                ),
+              );
+            },
+            child: MovieCard(
+              movie: movie,
+            ),
           );
         },
-        childCount: movies.length,
+        childCount: movies.length+1,
       ),
     );
   }
+
 
   SliverToBoxAdapter _buildHeader() {
     return SliverToBoxAdapter(
@@ -252,7 +306,22 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const Spacer(),
-            IconButton(onPressed: () {} ,
+            IconButton(onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MultiBlocProvider(
+                    providers: [
+                      BlocProvider<FavoritesCubit>(
+                        create: (context) => FavoritesCubit()..loadFavorites(),
+                      ),
+                    ],
+                    child: FavoritesScreen(),
+                  ),
+                ),
+              );
+
+            } ,
                 icon: const Icon(
                   Icons.favorite_rounded, color: Colors.redAccent, size: 25,)),
           ],

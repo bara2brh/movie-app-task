@@ -45,8 +45,8 @@ class Results {
   bool? video;
   double? voteAverage;
   int? voteCount;
-  List<Genre>? genres; // Added genres
-  List<ProductionCompany>? productionCompanies; // Added production companies
+  List<Genre>? genres;
+  List<ProductionCompany>? productionCompanies;
 
   Results({
     this.adult,
@@ -83,7 +83,7 @@ class Results {
     voteAverage = (json['vote_average'] as num?)?.toDouble();
     voteCount = json['vote_count'];
 
-    // Parse genres
+
     if (json['genres'] != null) {
       genres = <Genre>[];
       json['genres'].forEach((v) {
@@ -91,7 +91,6 @@ class Results {
       });
     }
 
-    // Parse production companies
     if (json['production_companies'] != null) {
       productionCompanies = <ProductionCompany>[];
       json['production_companies'].forEach((v) {
@@ -117,12 +116,12 @@ class Results {
     data['vote_average'] = voteAverage;
     data['vote_count'] = voteCount;
 
-    // Add genres
+
     if (genres != null) {
       data['genres'] = genres!.map((v) => v.toJson()).toList();
     }
 
-    // Add production companies
+
     if (productionCompanies != null) {
       data['production_companies'] =
           productionCompanies!.map((v) => v.toJson()).toList();

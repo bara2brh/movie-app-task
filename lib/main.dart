@@ -6,18 +6,15 @@ import 'package:movie_app_project/view/home_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:movie_app_project/view/movie_details_screen.dart';
 
+import 'cubit/favorites_cubit.dart';
 import 'cubit/movies_cubit.dart';
 
 void main() {
-  runApp( MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  late MovieRepository movieRepository;
-
-   MyApp({super.key}){
-     movieRepository = MovieRepository(MovieWebServices());
-   }
+  final MovieRepository movieRepository = MovieRepository(MovieWebServices());
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +29,15 @@ class MyApp extends StatelessWidget {
           scaffoldBackgroundColor: const Color(0xFF0C0F14),
           useMaterial3: true,
         ),
-        home: BlocProvider<MoviesCubit>(
-          create: (context) => MoviesCubit(movieRepository),
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider<MoviesCubit>(
+              create: (context) => MoviesCubit(movieRepository),
+            ),
+            BlocProvider(
+              create: (context) => FavoritesCubit(),
+            ),
+          ],
           child: HomeScreen(),
         ),
       ),

@@ -9,11 +9,17 @@ abstract class MoviesState extends Equatable {
 
 class MoviesInitial extends MoviesState {}
 
-class MoviesLoading extends MoviesState {}
+class MoviesLoading extends MoviesState {
+  final bool isPagination;
+  const MoviesLoading({this.isPagination = false});
+
+  @override
+  List<Object?> get props => [isPagination];
+}
 
 class MoviesLoaded extends MoviesState {
   final List<dynamic> movies;
-  final bool isPagination;  // Flag to check if it's pagination or first load
+  final bool isPagination;
 
   const MoviesLoaded(this.movies, {this.isPagination = false});
 
